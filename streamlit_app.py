@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from prophet import Prophet
-from forecast import generate_synthetic_data  # Ensure this is in your project
+from forecast import generate_synthetic_data  # Make sure this function is available
 
 # 1. Basic Page Configuration
 st.set_page_config(
@@ -14,18 +14,56 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Set the main app background color */
+    /* Overall background */
     [data-testid="stAppViewContainer"] {
-        background-color: #1E1E1E;
+        background-color: #1E1E1E; /* Dark background */
     }
 
-    /* Customize headings */
+    /* Force default text color to white */
+    body, .stApp, .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span {
+        color: #FFFFFF !important;
+    }
+
+    /* Override metric labels & values */
+    [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #FFFFFF !important;
+    }
+
+    /* Override info/warning/error boxes (st.info, st.warning, st.error) */
+    .stAlert, .stAlert p {
+        background-color: #333333 !important;
+        color: #FFFFFF !important;
+    }
+
+    /* Buttons */
+    .stButton button {
+        background-color: #E94F37 !important;
+        color: #FFFFFF !important;
+        border-radius: 10px !important;
+        border: none !important;
+        font-size: 1rem !important;
+        padding: 0.6rem 1.2rem !important;
+        cursor: pointer;
+    }
+    .stButton button:hover {
+        background-color: #D8432F !important;
+    }
+
+    /* File uploader label and text */
+    [data-testid="stFileUploadDropzone"] div, [data-testid="stFileUploadDropzone"] label {
+        color: #FFFFFF !important;
+    }
+
+    /* Headings */
     h1, h2, h3, h4 {
-        color: #FAFAFA;
+        color: #FAFAFA !important;
         font-family: "Arial Black", sans-serif;
     }
 
-    /* Hero section styling */
+    /* Hero section (example) */
     .my-hero-section {
         background-color:#262730;
         padding:40px;
@@ -43,25 +81,6 @@ st.markdown(
         color:#F0F0F0; 
         font-size:1.2em; 
         margin-top:10px;
-    }
-
-    /* Make text readable on dark background */
-    .stMarkdown p, .stMarkdown div, .stMarkdown span {
-        color: #F0F0F0 !important;
-    }
-
-    /* Style for buttons */
-    .stButton button {
-        background-color: #E94F37 !important;
-        color: #FFFFFF !important;
-        border-radius: 10px !important;
-        border: none !important;
-        font-size: 1rem !important;
-        padding: 0.6rem 1.2rem !important;
-        cursor: pointer;
-    }
-    .stButton button:hover {
-        background-color: #D8432F !important;
     }
     </style>
     """,
@@ -177,9 +196,14 @@ if st.button("Generate Forecast"):
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         colA, colB, colC = st.columns(3)
         # Here, Turns is the same as the Inventory Turnover Ratio
-        colA.metric(label="Turns", value=f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio is not None else "N/A")
-        # Days of Supply is similar to Days of Inventory on Hand
-        colB.metric(label="Days of Supply", value=f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand is not None else "N/A")
+        if 'inventory_turnover_ratio' not in locals():
+            # If not calculated above (or if something was missing), set to None
+            inventory_turnover_ratio = None
+            days_of_inventory_on_hand = None
+
+        colA.metric(label="Turns", value=f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
+        colB.metric(label="Days of Supply", value=f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
+        
         if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
             reserved_total = df['reserved_inventory'].sum()
             obsolete_total = df['obsolete_inventory'].sum()
@@ -244,3 +268,4 @@ if st.button("Generate Forecast"):
     st.subheader("Forecast Components")
     fig2 = model.plot_components(forecast_df)
     st.pyplot(fig2)
+
