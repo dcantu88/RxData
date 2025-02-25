@@ -1,4 +1,5 @@
 # what_if_analysis.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,7 +8,7 @@ from forecast_utils import generate_synthetic_data
 
 def show_what_if_analysis():
     st.header("What-If Analysis")
-    st.write("Simulate scenarios by adjusting the synthetic data parameters.")
+    st.write("Simulate scenarios by adjusting synthetic data parameters.")
     
     base_demand = st.number_input("Base Demand", value=50)
     noise_std = st.slider("Noise Standard Deviation", min_value=0.0, max_value=10.0, value=5.0, step=0.5)
@@ -29,7 +30,7 @@ def show_what_if_analysis():
         df_custom["reserved_inventory"] = np.random.randint(0, 10, days)
         df_custom["obsolete_inventory"] = np.random.randint(0, 5, days)
         return df_custom
-
+    
     df_custom = generate_custom_synthetic_data()
     st.write("Custom Synthetic Data Preview:", df_custom.head())
     

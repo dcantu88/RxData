@@ -1,5 +1,7 @@
-import numpy as np
+# forecast_utils.py
+
 import pandas as pd
+import numpy as np
 from prophet import Prophet
 from xgboost import XGBRegressor
 import lightgbm as lgb
@@ -11,6 +13,7 @@ def generate_synthetic_data(days=365, start_date="2024-01-01"):
     noise = np.random.normal(0, 5, days)
     demand_values = base_demand + trend + noise
     demand_values = np.clip(demand_values, a_min=0, a_max=None)
+    
     df = pd.DataFrame({"ds": dates, "y": demand_values})
     # Additional KPI columns
     df["target_inventory"] = df["y"] * 1.1 + np.random.normal(0, 2, days)
@@ -34,7 +37,7 @@ def load_user_data(uploaded_file):
             else:
                 return None
             return df
-        except Exception as e:
+        except Exception:
             return None
     return None
 

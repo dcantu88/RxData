@@ -1,7 +1,7 @@
 # streamlit_app.py
+
 import streamlit as st
 from forecast_utils import generate_synthetic_data, load_user_data
-# Import additional modules when needed via dynamic imports
 
 # Set up page configuration and CSS
 st.set_page_config(page_title="RxData Inventory Forecast Dashboard", layout="wide")
@@ -25,7 +25,8 @@ st.markdown(
     .my-hero-section h1 { color:#FAFAFA; font-size:2.5em; margin-bottom:0; }
     .my-hero-section p { color:#F0F0F0; font-size:1.2em; margin-top:10px; }
     </style>
-    """, unsafe_allow_html=True
+    """,
+    unsafe_allow_html=True
 )
 
 # Hero Section
@@ -47,7 +48,7 @@ if menu == "Overview":
     show_overview()
 elif menu == "Forecast":
     st.header("Forecast")
-    # In the Forecast section, use your existing workflow.
+    # Use file uploader in this section
     uploaded_file_local = st.file_uploader("Upload your data file (CSV or Excel)", type=['csv', 'xls', 'xlsx'])
     if uploaded_file_local:
         df = load_user_data(uploaded_file_local)
@@ -67,7 +68,6 @@ elif menu == "Forecast":
     col3.metric("Peak Forecast Demand", f"{fp['yhat'].max():,.0f}")
     
     st.subheader("Historical KPIs")
-    # (Insert your full historical KPI code block here—this ensures all historical metrics are shown above the plots.)
     if 'target_inventory' in df.columns and 'actual_inventory' in df.columns:
         df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
         total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
@@ -93,9 +93,9 @@ elif menu == "Forecast":
             col7.metric("RMSE", f"{rmse:.2f}")
             col8.metric("MAPE (%)", f"{mape:.2f}%" if mape is not None else "N/A")
         else:
-            st.info("Not enough historical data for accuracy metrics.")
+            st.info("Not enough historical data to compute accuracy metrics.")
     else:
-        st.info("Forecast Accuracy Metrics require a 'y' column.")
+        st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
     
     st.markdown("**Forecast Data & Plots**")
     st.write(forecast_df.tail())
@@ -112,4 +112,3 @@ elif menu == "Parameter Tuning":
 elif menu == "What-If Analysis":
     from what_if_analysis import show_what_if_analysis
     show_what_if_analysis()
-

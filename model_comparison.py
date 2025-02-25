@@ -1,17 +1,19 @@
 # model_comparison.py
+
 import streamlit as st
 from forecast_utils import generate_synthetic_data, prophet_forecast, xgboost_forecast, lightgbm_forecast
 
 def show_model_comparison():
     st.header("Model Comparison")
-    st.write("Compare forecasts from different models using the same input data.")
-    df = generate_synthetic_data()  # For demonstration; you can later allow CSV upload.
+    st.write("Below is a comparison of forecasts from different models using the same synthetic data.")
+    
+    # Use synthetic data for demonstration
+    df = generate_synthetic_data()
     
     model_prophet, forecast_df_prophet = prophet_forecast(df, days_to_predict=90)
     _, future_df_xgb = xgboost_forecast(df, days_to_predict=90)
     _, future_df_lgb = lightgbm_forecast(df, days_to_predict=90)
     
-    # Calculate KPIs for each model
     prophet_kpis = {
         "Total Forecast Demand": f"{forecast_df_prophet.tail(90)['yhat'].sum():,.0f}",
         "Average Forecast Demand": f"{forecast_df_prophet.tail(90)['yhat'].mean():,.0f}",

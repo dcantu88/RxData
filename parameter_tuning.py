@@ -1,4 +1,5 @@
 # parameter_tuning.py
+
 import streamlit as st
 import pandas as pd
 import xgboost as xgb
@@ -6,9 +7,8 @@ from forecast_utils import generate_synthetic_data, build_features_for_ml
 
 def show_parameter_tuning():
     st.header("Parameter Tuning")
-    st.write("Adjust XGBoost hyperparameters to see the effect on forecasts.")
+    st.write("Adjust XGBoost hyperparameters to see how the forecast changes.")
     
-    # Tuning slider for learning rate
     lr = st.slider("XGBoost Learning Rate", min_value=0.01, max_value=0.5, value=0.1, step=0.01)
     
     df = generate_synthetic_data()
