@@ -6,37 +6,67 @@ from model_comparison import show_model_comparison
 from parameter_tuning import show_parameter_tuning
 from what_if_analysis import show_what_if_analysis
 
+# Set page configuration and inject custom CSS for dark theme and card-like metrics
 st.set_page_config(page_title="RxData Inventory Forecast Dashboard", layout="wide")
-
 st.markdown(
     """
     <style>
-    [data-testid="stAppViewContainer"] { background-color: #1E1E1E !important; }
+    [data-testid="stAppViewContainer"] {
+        background-color: #1E1E1E !important;
+    }
     body, .stApp, .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span {
         color: #FFFFFF !important;
     }
-    [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #FFFFFF !important; }
+    [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+        color: #FFFFFF !important;
+    }
     [data-testid="metric-container"], [data-testid="stMetric"] {
-        border: 1px solid #FFFFFF; padding: 1rem; border-radius: 0.5rem;
-        background-color: rgba(255,255,255,0.05); margin-bottom: 1rem;
+        border: 1px solid #FFFFFF;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background-color: rgba(255,255,255,0.05);
+        margin-bottom: 1rem;
     }
     .stButton button {
-        background-color: #E94F37 !important; color: #FFFFFF !important;
-        border-radius: 10px !important; border: none !important;
-        font-size: 1rem !important; padding: 0.6rem 1.2rem !important;
+        background-color: #E94F37 !important;
+        color: #FFFFFF !important;
+        border-radius: 10px !important;
+        border: none !important;
+        font-size: 1rem !important;
+        padding: 0.6rem 1.2rem !important;
         cursor: pointer;
     }
-    .stButton button:hover { background-color: #D8432F !important; }
-    h1, h2, h3, h4 { color: #FAFAFA !important; font-family: "Arial Black", sans-serif; }
-    .my-hero-section { background-color:#262730; padding:40px; border-radius:10px;
-        text-align:center; margin-bottom:20px; margin-top: -1rem; }
-    .my-hero-section h1 { color:#FAFAFA; font-size:2.5em; margin-bottom:0; }
-    .my-hero-section p { color:#F0F0F0; font-size:1.2em; margin-top:10px; }
+    .stButton button:hover {
+        background-color: #D8432F !important;
+    }
+    h1, h2, h3, h4 {
+        color: #FAFAFA !important;
+        font-family: "Arial Black", sans-serif;
+    }
+    .my-hero-section {
+        background-color:#262730;
+        padding:40px;
+        border-radius:10px;
+        text-align:center;
+        margin-bottom:20px;
+        margin-top: -1rem;
+    }
+    .my-hero-section h1 {
+        color:#FAFAFA;
+        font-size:2.5em;
+        margin-bottom:0;
+    }
+    .my-hero-section p {
+        color:#F0F0F0;
+        font-size:1.2em;
+        margin-top:10px;
+    }
     </style>
     """,
     unsafe_allow_html=True
 )
 
+# Hero Section
 st.markdown(
     """
     <div class="my-hero-section">
@@ -47,41 +77,43 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Updated sidebar with new menu item "Anomaly Detection" and "Business Impact" and "Automated Insights"
+# Sidebar Navigation
 menu = st.sidebar.radio(
-    "Navigation", 
+    "Navigation",
     [
-        "Overview", 
-        "Forecast", 
-        "Business Impact", 
-        "Automated Insights", 
+        "Overview",
+        "Forecast",
+        "Business Impact",
+        "Automated Insights",
+        "AI Chatbot",
         "Anomaly Detection",
-        "Model Comparison", 
-        "Parameter Tuning", 
+        "Model Comparison",
+        "Parameter Tuning",
         "What-If Analysis"
     ]
 )
 
+# Overview Section
 def show_overview():
     st.header("Overview")
     st.write(
         "Welcome to the RxData Inventory Forecast & KPI Dashboard. "
-        "This tool leverages AI/ML to provide inventory forecasts and key performance indicators (KPIs) "
-        "to help optimize your supply chain. Use the sidebar to navigate between sections."
+        "This tool leverages AI/ML to provide both technical forecasts and business insights "
+        "to optimize your supply chain. Use the sidebar to navigate between sections."
     )
 
+# Forecast Section – Preserves your existing generate forecast functionality.
 def show_forecast_section():
     st.header("Forecast")
-    st.write("Upload a CSV (with 'ds' and 'y' columns) or use synthetic data. Then select a model and click **Generate Forecast** to see results.")
+    st.write("Upload a CSV (with 'ds' and 'y' columns) or use synthetic data. Then select a model and click **Generate Forecast**.")
 
     # File Uploader
     uploaded_file_local = st.file_uploader("Upload your data file (CSV or Excel)", type=['csv', 'xls', 'xlsx'])
-
-    # Model Dropdown
+    # Model Selection Dropdown
     model_choice = st.selectbox("Select a Forecasting Model", ["Prophet", "XGBoost", "LightGBM"])
 
-    # Generate Forecast Button
     if st.button("Generate Forecast"):
+        # Load data or use synthetic
         if uploaded_file_local:
             df_user = load_user_data(uploaded_file_local)
             if df_user is None:
@@ -92,6 +124,7 @@ def show_forecast_section():
         else:
             df = generate_synthetic_data()
 
+        # Validate required columns for the chosen model
         if model_choice == "Prophet":
             if not {'ds','y'}.issubset(df.columns):
                 st.error("Your data must have 'ds' and 'y' columns for Prophet. Using synthetic fallback.")
@@ -101,6 +134,7 @@ def show_forecast_section():
                 st.error("Your data must have 'ds' column for XGBoost/LightGBM. Using synthetic fallback.")
                 df = generate_synthetic_data()
 
+        # Run the selected model forecast
         if model_choice == "Prophet":
             from forecast_utils import prophet_forecast
             model, forecast_df = prophet_forecast(df, days_to_predict=90)
@@ -114,6 +148,7 @@ def show_forecast_section():
             model, forecast_df = lightgbm_forecast(df, days_to_predict=90)
             pred_col = 'lgb_pred'
 
+        # Display Forecast KPIs
         st.subheader("Forecast KPIs (Next 90 Days)")
         if pred_col not in forecast_df.columns:
             st.error(f"Missing '{pred_col}' column in forecast. Cannot display forecast KPIs.")
@@ -128,6 +163,7 @@ def show_forecast_section():
             col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
             col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
 
+        # Historical KPIs
         st.subheader("Historical KPIs")
         if {'target_inventory','actual_inventory'}.issubset(df.columns):
             df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
@@ -142,6 +178,7 @@ def show_forecast_section():
         else:
             st.info("Historical Inventory KPIs require 'target_inventory' and 'actual_inventory' columns.")
 
+        # Additional Inventory Efficiency KPIs
         st.subheader("Inventory Efficiency KPIs (Historical)")
         if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
             avg_inv = df['actual_inventory'].mean()
@@ -159,6 +196,7 @@ def show_forecast_section():
         else:
             st.info("Inventory Efficiency KPIs require 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
+        # Additional Inventory Metrics (Reserved/Obsolete)
         st.subheader("Additional Inventory Metrics (Historical)")
         if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
             reserved_total = df['reserved_inventory'].sum()
@@ -171,6 +209,7 @@ def show_forecast_section():
         else:
             st.info("Additional Inventory Metrics require 'reserved_inventory' and 'obsolete_inventory' columns.")
 
+        # Additional Fills KPIs
         st.subheader("Additional Fills KPIs (Historical)")
         if all(col in df.columns for col in ['90_day_fills','brand_fills','generic_fills','partial_fills']):
             total_90_fills = df['90_day_fills'].sum()
@@ -185,17 +224,18 @@ def show_forecast_section():
         else:
             st.info("Fills KPIs require '90_day_fills', 'brand_fills', 'generic_fills', and 'partial_fills' columns.")
 
+        # Business Impact & Value – dynamically calculated from the forecast data
         st.subheader("Business Impact & Value")
         if 'cost_of_goods_sold' in df.columns and 'y' in df.columns:
             avg_cost = df['cost_of_goods_sold'].sum() / df['y'].sum()
         else:
-            avg_cost = 50
+            avg_cost = 50  # default cost per unit
         if {'target_inventory','actual_inventory'}.issubset(df.columns):
             df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
             total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
         else:
             total_overstock = 0
-        potential_savings = total_overstock * avg_cost * 0.30
+        potential_savings = total_overstock * avg_cost * 0.30  # assume 30% reduction yields savings
 
         st.subheader("Key Business Impact Metrics")
         colBI1, colBI2 = st.columns(2)
@@ -210,6 +250,7 @@ def show_forecast_section():
             """
         )
 
+        # Forecast Accuracy Metrics (Prophet only)
         if model_choice == "Prophet":
             st.subheader("Forecast Accuracy Metrics (Prophet)")
             if 'y' not in df.columns:
@@ -239,6 +280,7 @@ def show_forecast_section():
         else:
             st.info("Forecast Accuracy Metrics are only shown for Prophet in this demo.")
 
+        # Show Forecast Data & Plots
         st.markdown("**Forecast Data (Last 5 Rows):**")
         if not forecast_df.empty:
             st.write(forecast_df.tail())
@@ -269,16 +311,10 @@ def show_business_impact():
     from business_impact import show_business_impact as bip
     bip()
 
-# Main Navigation Logic
-if menu == "Overview":
-    show_overview()
-elif menu == "Forecast":
-    show_forecast_section()
-elif menu == "Business Impact":
-    show_business_impact()
-elif menu == "Automated Insights":
+# Automated Insights Section using separate module
+def show_automated_insights():
     from automated_insights import show_automated_insights
-    # For Automated Insights, use synthetic data for demonstration
+    # For demonstration, use synthetic data
     df = generate_synthetic_data()
     from forecast_utils import prophet_forecast
     model, forecast_df = prophet_forecast(df, days_to_predict=90)
@@ -301,8 +337,25 @@ elif menu == "Automated Insights":
     potential_savings = 0.3 * forecast_kpis["Total Forecast Demand"] * avg_cost
     business_metrics = {"Potential Savings": potential_savings}
     show_automated_insights(forecast_kpis, historical_kpis, business_metrics)
-elif menu == "Anomaly Detection":
+
+# Anomaly Detection Section using separate module
+def show_anomaly_detection():
     from anomaly_detection import show_anomaly_detection
+    show_anomaly_detection()
+
+# Main Navigation Logic
+if menu == "Overview":
+    show_overview()
+elif menu == "Forecast":
+    show_forecast_section()
+elif menu == "Business Impact":
+    show_business_impact()
+elif menu == "Automated Insights":
+    show_automated_insights()
+elif menu == "AI Chatbot":
+    from chatbot import show_chatbot
+    show_chatbot()
+elif menu == "Anomaly Detection":
     show_anomaly_detection()
 elif menu == "Model Comparison":
     show_model_comparison()
