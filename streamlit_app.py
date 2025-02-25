@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from prophet import Prophet
-
-# XGBoost and LightGBM imports
 import xgboost as xgb
 import lightgbm as lgb
 
@@ -26,7 +24,7 @@ st.markdown(
         color: #FFFFFF !important;
     }
 
-    /* Card-like metrics (works for some Streamlit versions) */
+    /* Card-like metrics */
     [data-testid="metric-container"],
     [data-testid="stMetric"] {
         border: 1px solid #FFFFFF;
@@ -158,17 +156,17 @@ def prophet_forecast(df, days_to_predict=90):
 # 7. XGBoost Forecast
 #############################
 def build_features_for_ml(df):
-    """Simple date-based features."""
     df = df.copy()
     df["day_of_week"] = df["ds"].dt.dayofweek
     df["day_of_month"] = df["ds"].dt.day
     df["month"] = df["ds"].dt.month
     df["year"] = df["ds"].dt.year
     X = df[["day_of_week", "day_of_month", "month", "year"]]
-    y = df["y"]
+    y = df["y"] if "y" in df.columns else None
     return X, y
 
 def xgboost_forecast(df, days_to_predict=90):
+    # Build features for training
     X, y = build_features_for_ml(df)
     split_index = int(0.8 * len(df))
     X_train, X_test = X.iloc[:split_index], X.iloc[split_index:]
@@ -177,6 +175,7 @@ def xgboost_forecast(df, days_to_predict=90):
     model_xgb = xgb.XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
     model_xgb.fit(X_train, y_train, eval_set=[(X_test, y_test)], early_stopping_rounds=10, verbose=False)
     
+    # Create future DataFrame
     last_date = df["ds"].max()
     future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_to_predict, freq="D")
     future_df = pd.DataFrame({"ds": future_dates})
@@ -211,7 +210,7 @@ def lightgbm_forecast(df, days_to_predict=90):
 model_option = st.selectbox("Select Forecasting Model", ("Prophet", "XGBoost", "LightGBM"))
 
 if st.button("Generate Forecast"):
-    # Load user data or generate synthetic
+    # Load or generate data
     if uploaded_file:
         df_user = load_user_data(uploaded_file)
         if df_user is None:
@@ -228,6 +227,20 @@ if st.button("Generate Forecast"):
     if model_option == "Prophet":
         st.subheader("Prophet Forecast")
         model, forecast_df = prophet_forecast(df, days_to_predict=90)
+        
+        # Compute Prophet forecast KPIs at the top
+        forecast_period = forecast_df.tail(90)
+        total_forecast_demand = forecast_period['yhat'].sum()
+        average_forecast_demand = forecast_period['yhat'].mean()
+        peak_forecast_demand = forecast_period['yhat'].max()
+
+        st.subheader("Forecast KPIs (Next 90 Days)")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
+        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
+        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
+
+        # Show forecast data & plots
         st.write("Prophet Forecast (Last 5 Rows):")
         st.write(forecast_df.tail())
         fig = model.plot(forecast_df)
@@ -235,20 +248,22 @@ if st.button("Generate Forecast"):
         fig2 = model.plot_components(forecast_df)
         st.pyplot(fig2)
 
-        # Example forecast KPIs
-        forecast_period = forecast_df.tail(90)
-        total_forecast_demand = forecast_period['yhat'].sum()
-        average_forecast_demand = forecast_period['yhat'].mean()
-        peak_forecast_demand = forecast_period['yhat'].max()
+    elif model_option == "XGBoost":
+        st.subheader("XGBoost Forecast")
+        model_xgb, future_df = xgboost_forecast(df, days_to_predict=90)
+
+        # Compute XGBoost forecast KPIs at the top
+        total_forecast_demand = future_df['xgb_pred'].sum()
+        average_forecast_demand = future_df['xgb_pred'].mean()
+        peak_forecast_demand = future_df['xgb_pred'].max()
+
         st.subheader("Forecast KPIs (Next 90 Days)")
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
         col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
         col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
 
-    elif model_option == "XGBoost":
-        st.subheader("XGBoost Forecast")
-        model_xgb, future_df = xgboost_forecast(df, days_to_predict=90)
+        # Show forecast data & chart
         st.write("XGBoost Forecast Data (Next 90 Days):")
         st.write(future_df.tail())
         st.line_chart(data=future_df.set_index('ds')['xgb_pred'], use_container_width=True)
@@ -256,6 +271,19 @@ if st.button("Generate Forecast"):
     elif model_option == "LightGBM":
         st.subheader("LightGBM Forecast")
         model_lgb, future_df = lightgbm_forecast(df, days_to_predict=90)
+
+        # Compute LightGBM forecast KPIs at the top
+        total_forecast_demand = future_df['lgb_pred'].sum()
+        average_forecast_demand = future_df['lgb_pred'].mean()
+        peak_forecast_demand = future_df['lgb_pred'].max()
+
+        st.subheader("Forecast KPIs (Next 90 Days)")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
+        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
+        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
+
+        # Show forecast data & chart
         st.write("LightGBM Forecast Data (Next 90 Days):")
         st.write(future_df.tail())
         st.line_chart(data=future_df.set_index('ds')['lgb_pred'], use_container_width=True)
@@ -263,14 +291,13 @@ if st.button("Generate Forecast"):
     #################################
     # B. Historical KPIs (on df)
     #################################
-    # Inventory KPIs
+    st.subheader("Additional Inventory KPIs (Historical)")
     if 'target_inventory' in df.columns and 'actual_inventory' in df.columns:
         df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
         total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
         total_stockout_savings = -df[df['inventory_diff'] < 0]['inventory_diff'].sum()
         total_inventory_gap = df['inventory_diff'].sum()
 
-        st.subheader("Additional Inventory KPIs (Historical)")
         col4, col5, col6 = st.columns(3)
         col4.metric("Inventory Targets vs Actual", f"{total_inventory_gap:,.0f}")
         col5.metric("Total Overstock", f"{total_overstock:,.0f}")
@@ -278,7 +305,7 @@ if st.button("Generate Forecast"):
     else:
         st.info("Additional Inventory KPIs require 'target_inventory' and 'actual_inventory' columns.")
 
-    # Inventory Efficiency KPIs
+    st.subheader("Inventory Efficiency KPIs (Historical)")
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         average_inventory = df['actual_inventory'].mean()
         total_cogs = df['cost_of_goods_sold'].sum()
@@ -289,7 +316,6 @@ if st.button("Generate Forecast"):
             inventory_turnover_ratio = None
             days_of_inventory_on_hand = None
 
-        st.subheader("Inventory Efficiency KPIs (Historical)")
         col7, col8 = st.columns(2)
         if inventory_turnover_ratio is not None:
             col7.metric("Inventory Turnover Ratio", f"{inventory_turnover_ratio:.2f}")
@@ -302,7 +328,7 @@ if st.button("Generate Forecast"):
     else:
         st.info("Inventory Efficiency KPIs require 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
-    # Additional Inventory Metrics: Reserved/Obsolete, etc.
+    st.subheader("Additional Inventory Metrics (Historical)")
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         colA, colB, colC = st.columns(3)
         if 'inventory_turnover_ratio' not in locals():
@@ -319,13 +345,25 @@ if st.button("Generate Forecast"):
         else:
             colC.info("Reserved/Obsolete KPIs not available")
 
+    st.subheader("Additional Fills KPIs (Historical)")
+    if all(col in df.columns for col in ['90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills']):
+        total_90_day_fills = df['90_day_fills'].sum()
+        total_brand_fills = df['brand_fills'].sum()
+        total_generic_fills = df['generic_fills'].sum()
+        total_partial_fills = df['partial_fills'].sum()
+
+        col12, col13, col14, col15 = st.columns(4)
+        col12.metric(label="Total 90 Day Fills", value=f"{total_90_day_fills:,.0f}")
+        col13.metric(label="Total Brand Fills", value=f"{total_brand_fills:,.0f}")
+        col14.metric(label="Total Generic Fills", value=f"{total_generic_fills:,.0f}")
+        col15.metric(label="Partial Fills", value=f"{total_partial_fills:,.0f}")
+    else:
+        st.info("Fills KPIs require '90_day_fills', 'brand_fills', 'generic_fills', and 'partial_fills' columns.")
+
     #################################
-    # C. Forecast Accuracy (Historical)
+    # C. Forecast Accuracy (Prophet Only)
     #################################
     if 'y' in df.columns:
-        # If using Prophet, we can merge forecast_df to compute error (only if Prophet is chosen).
-        # If using ML, we'd have to do a more advanced approach for actual vs predicted overlap.
-        # For simplicity, here's an example if Prophet was chosen:
         if model_option == "Prophet":
             # Merge the forecast with actual y
             forecast_merged = forecast_df.merge(df[['ds','y']], on='ds', how='left')
@@ -350,4 +388,4 @@ if st.button("Generate Forecast"):
         else:
             st.info("Forecast Accuracy Metrics are shown for Prophet in this demo.")
     else:
-        st.info("Forecast Accuracy Metrics require historical actual demand data in column 'y'.")
+        st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
