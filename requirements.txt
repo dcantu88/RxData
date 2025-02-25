@@ -3,5 +3,5 @@ prophet
 pandas
 numpy
 matplotlib
-xgboost
-lightgbm
+xgboost==1.6.2
+lightgbm==3.3.5
