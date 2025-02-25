@@ -1,16 +1,14 @@
 # streamlit_app.py
 
 import streamlit as st
-from forecast_utils import generate_synthetic_data, load_user_data  # from your updated forecast_utils.py
-
-# Import new modules for other sections
+from forecast_utils import generate_synthetic_data, load_user_data
 from model_comparison import show_model_comparison
 from parameter_tuning import show_parameter_tuning
 from what_if_analysis import show_what_if_analysis
 
+# Set page config and inject CSS for dark theme + card-like metrics
 st.set_page_config(page_title="RxData Inventory Forecast Dashboard", layout="wide")
 
-# Inject custom CSS for dark mode, card-like metrics, etc.
 st.markdown(
     """
     <style>
@@ -112,40 +110,32 @@ def show_forecast_section():
         else:
             df = generate_synthetic_data()
 
-        # 3b. Check for ds, y if needed
+        # 3b. Validate columns for chosen model
         if model_choice == "Prophet":
-            if not {'ds', 'y'}.issubset(df.columns):
-                st.error("DataFrame must contain 'ds' and 'y' for Prophet. Using synthetic fallback.")
+            if not {'ds','y'}.issubset(df.columns):
+                st.error("Your data must have 'ds' and 'y' columns for Prophet. Using synthetic fallback.")
                 df = generate_synthetic_data()
         else:
-            # XGBoost or LightGBM can still forecast if ds is present for indexing. 
-            # They only need 'ds' for the future dates, but not strictly 'y' if fallback is synthetic.
             if 'ds' not in df.columns:
-                st.error("DataFrame missing 'ds' column. Using synthetic fallback.")
+                st.error("Your data must have 'ds' column for XGBoost/LightGBM. Using synthetic fallback.")
                 df = generate_synthetic_data()
 
-        # 3c. Run the selected model
+        # 3c. Run the selected model forecast
         if model_choice == "Prophet":
             from forecast_utils import prophet_forecast
             model, forecast_df = prophet_forecast(df, days_to_predict=90)
+            pred_col = 'yhat'
         elif model_choice == "XGBoost":
             from forecast_utils import xgboost_forecast
             model, forecast_df = xgboost_forecast(df, days_to_predict=90)
+            pred_col = 'xgb_pred'
         else:  # LightGBM
             from forecast_utils import lightgbm_forecast
             model, forecast_df = lightgbm_forecast(df, days_to_predict=90)
-
-        # 3d. Display Forecast KPIs
-        st.subheader("Forecast KPIs (Next 90 Days)")
-
-        # For Prophet, the column is 'yhat'. For XGBoost or LightGBM, it's 'xgb_pred' or 'lgb_pred'
-        if model_choice == "Prophet":
-            pred_col = 'yhat'
-        elif model_choice == "XGBoost":
-            pred_col = 'xgb_pred'
-        else:
             pred_col = 'lgb_pred'
 
+        # 3d. Forecast KPIs (Next 90 Days)
+        st.subheader("Forecast KPIs (Next 90 Days)")
         if pred_col not in forecast_df.columns:
             st.error(f"Missing '{pred_col}' column in forecast. Cannot display forecast KPIs.")
         else:
@@ -161,7 +151,7 @@ def show_forecast_section():
 
         # 3e. Historical KPIs
         st.subheader("Historical KPIs")
-        if {'target_inventory', 'actual_inventory'}.issubset(df.columns):
+        if {'target_inventory','actual_inventory'}.issubset(df.columns):
             df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
             total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
             total_stockout_savings = -df[df['inventory_diff'] < 0]['inventory_diff'].sum()
@@ -174,13 +164,13 @@ def show_forecast_section():
         else:
             st.info("Historical Inventory KPIs require 'target_inventory' and 'actual_inventory' columns.")
 
-        # 3f. Forecast Accuracy (Only for Prophet if 'y' is present)
+        # 3f. Forecast Accuracy (Prophet only)
         if model_choice == "Prophet":
             st.subheader("Forecast Accuracy Metrics (Prophet)")
             if 'y' not in df.columns:
                 st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
             else:
-                if 'ds' in forecast_df.columns:
+                try:
                     forecast_merged = forecast_df.merge(df[['ds','y']], on='ds', how='left')
                     historical_data = forecast_merged[forecast_merged['y'].notnull()]
                     if not historical_data.empty:
@@ -201,8 +191,8 @@ def show_forecast_section():
                             col8.metric("MAPE (%)", "N/A")
                     else:
                         st.info("Not enough overlapping historical data to compute accuracy metrics.")
-                else:
-                    st.error("`ds` missing in forecast_df. Cannot merge for accuracy metrics.")
+                except Exception as e:
+                    st.error(f"Accuracy merge error: {e}")
         else:
             st.info("Forecast Accuracy Metrics are only shown for Prophet in this demo.")
 
@@ -214,16 +204,12 @@ def show_forecast_section():
             st.warning("Forecast DataFrame is empty—no forecast to display.")
 
         # Plotting
-        # For Prophet, we do model.plot() and model.plot_components().
-        # For XGBoost/LightGBM, we do a simple line chart using the future df index=ds, value=pred_col.
-
         if model_choice == "Prophet":
             try:
                 fig = model.plot(forecast_df)
                 st.pyplot(fig)
             except Exception as e:
                 st.error(f"Prophet main plot error: {e}")
-
             try:
                 fig2 = model.plot_components(forecast_df)
                 st.pyplot(fig2)
@@ -238,13 +224,7 @@ def show_forecast_section():
     else:
         st.info("Select a model and click **Generate Forecast** to see results.")
 
-def show_overview():
-    st.header("Overview")
-    st.write(
-        "Welcome to the RxData Inventory Forecast & KPI Dashboard. "
-        "Use the sidebar to navigate between sections."
-    )
-
+# Display each section based on sidebar selection
 if menu == "Overview":
     show_overview()
 elif menu == "Forecast":
@@ -255,4 +235,5 @@ elif menu == "Parameter Tuning":
     show_parameter_tuning()
 elif menu == "What-If Analysis":
     show_what_if_analysis()
+
 
