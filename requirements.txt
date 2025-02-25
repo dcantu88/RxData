@@ -4,7 +4,7 @@ pandas
 numpy
 matplotlib
 xgboost==1.6.2
-lightgbm==3.3.5
+lightgbm==4.6.0
 scikit-learn
 transformers
 torch
