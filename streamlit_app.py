@@ -6,8 +6,8 @@ from model_comparison import show_model_comparison
 from parameter_tuning import show_parameter_tuning
 from what_if_analysis import show_what_if_analysis
 
-# Set page configuration and inject custom CSS
 st.set_page_config(page_title="RxData Inventory Forecast Dashboard", layout="wide")
+
 st.markdown(
     """
     <style>
@@ -22,15 +22,14 @@ st.markdown(
     }
     .stButton button {
         background-color: #E94F37 !important; color: #FFFFFF !important;
-        border-radius: 10px !important; border: none !important; font-size: 1rem !important;
-        padding: 0.6rem 1.2rem !important; cursor: pointer;
+        border-radius: 10px !important; border: none !important;
+        font-size: 1rem !important; padding: 0.6rem 1.2rem !important;
+        cursor: pointer;
     }
     .stButton button:hover { background-color: #D8432F !important; }
     h1, h2, h3, h4 { color: #FAFAFA !important; font-family: "Arial Black", sans-serif; }
-    .my-hero-section {
-        background-color:#262730; padding:40px; border-radius:10px;
-        text-align:center; margin-bottom:20px; margin-top: -1rem;
-    }
+    .my-hero-section { background-color:#262730; padding:40px; border-radius:10px;
+        text-align:center; margin-bottom:20px; margin-top: -1rem; }
     .my-hero-section h1 { color:#FAFAFA; font-size:2.5em; margin-bottom:0; }
     .my-hero-section p { color:#F0F0F0; font-size:1.2em; margin-top:10px; }
     </style>
@@ -38,7 +37,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Hero Section
 st.markdown(
     """
     <div class="my-hero-section">
@@ -49,33 +47,32 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Sidebar Navigation
+# Updated sidebar with new menu item "Anomaly Detection" and "Business Impact" and "Automated Insights"
 menu = st.sidebar.radio(
-    "Navigation",
+    "Navigation", 
     [
-        "Overview",
-        "Forecast",
-        "Business Impact",
-        "Automated Insights",
-        "Model Comparison",
-        "Parameter Tuning",
+        "Overview", 
+        "Forecast", 
+        "Business Impact", 
+        "Automated Insights", 
+        "Anomaly Detection",
+        "Model Comparison", 
+        "Parameter Tuning", 
         "What-If Analysis"
     ]
 )
 
-# Overview Section
 def show_overview():
     st.header("Overview")
     st.write(
         "Welcome to the RxData Inventory Forecast & KPI Dashboard. "
         "This tool leverages AI/ML to provide inventory forecasts and key performance indicators (KPIs) "
-        "that help optimize your supply chain. Use the sidebar to navigate between sections."
+        "to help optimize your supply chain. Use the sidebar to navigate between sections."
     )
 
-# Forecast Section (Existing functionality with robust checks)
 def show_forecast_section():
     st.header("Forecast")
-    st.write("Upload a CSV (with 'ds' and 'y' columns) or use synthetic data. Then select a model and click **Generate Forecast**.")
+    st.write("Upload a CSV (with 'ds' and 'y' columns) or use synthetic data. Then select a model and click **Generate Forecast** to see results.")
 
     # File Uploader
     uploaded_file_local = st.file_uploader("Upload your data file (CSV or Excel)", type=['csv', 'xls', 'xlsx'])
@@ -85,7 +82,6 @@ def show_forecast_section():
 
     # Generate Forecast Button
     if st.button("Generate Forecast"):
-        # Load data or fallback to synthetic
         if uploaded_file_local:
             df_user = load_user_data(uploaded_file_local)
             if df_user is None:
@@ -96,7 +92,6 @@ def show_forecast_section():
         else:
             df = generate_synthetic_data()
 
-        # Validate required columns
         if model_choice == "Prophet":
             if not {'ds','y'}.issubset(df.columns):
                 st.error("Your data must have 'ds' and 'y' columns for Prophet. Using synthetic fallback.")
@@ -106,7 +101,6 @@ def show_forecast_section():
                 st.error("Your data must have 'ds' column for XGBoost/LightGBM. Using synthetic fallback.")
                 df = generate_synthetic_data()
 
-        # Run selected model forecast
         if model_choice == "Prophet":
             from forecast_utils import prophet_forecast
             model, forecast_df = prophet_forecast(df, days_to_predict=90)
@@ -120,7 +114,6 @@ def show_forecast_section():
             model, forecast_df = lightgbm_forecast(df, days_to_predict=90)
             pred_col = 'lgb_pred'
 
-        # Forecast KPIs
         st.subheader("Forecast KPIs (Next 90 Days)")
         if pred_col not in forecast_df.columns:
             st.error(f"Missing '{pred_col}' column in forecast. Cannot display forecast KPIs.")
@@ -135,7 +128,6 @@ def show_forecast_section():
             col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
             col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
 
-        # Historical KPIs
         st.subheader("Historical KPIs")
         if {'target_inventory','actual_inventory'}.issubset(df.columns):
             df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
@@ -150,7 +142,6 @@ def show_forecast_section():
         else:
             st.info("Historical Inventory KPIs require 'target_inventory' and 'actual_inventory' columns.")
 
-        # Additional Inventory Efficiency KPIs
         st.subheader("Inventory Efficiency KPIs (Historical)")
         if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
             avg_inv = df['actual_inventory'].mean()
@@ -168,7 +159,6 @@ def show_forecast_section():
         else:
             st.info("Inventory Efficiency KPIs require 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
-        # Additional Inventory Metrics (Reserved/Obsolete)
         st.subheader("Additional Inventory Metrics (Historical)")
         if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
             reserved_total = df['reserved_inventory'].sum()
@@ -181,7 +171,6 @@ def show_forecast_section():
         else:
             st.info("Additional Inventory Metrics require 'reserved_inventory' and 'obsolete_inventory' columns.")
 
-        # Additional Fills KPIs
         st.subheader("Additional Fills KPIs (Historical)")
         if all(col in df.columns for col in ['90_day_fills','brand_fills','generic_fills','partial_fills']):
             total_90_fills = df['90_day_fills'].sum()
@@ -196,18 +185,17 @@ def show_forecast_section():
         else:
             st.info("Fills KPIs require '90_day_fills', 'brand_fills', 'generic_fills', and 'partial_fills' columns.")
 
-        # Business Impact & Value (Dynamic calculation based on forecast data)
         st.subheader("Business Impact & Value")
         if 'cost_of_goods_sold' in df.columns and 'y' in df.columns:
             avg_cost = df['cost_of_goods_sold'].sum() / df['y'].sum()
         else:
-            avg_cost = 50  # default cost per unit
+            avg_cost = 50
         if {'target_inventory','actual_inventory'}.issubset(df.columns):
             df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
             total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
         else:
             total_overstock = 0
-        potential_savings = total_overstock * avg_cost * 0.30  # assume 30% reduction yields savings
+        potential_savings = total_overstock * avg_cost * 0.30
 
         st.subheader("Key Business Impact Metrics")
         colBI1, colBI2 = st.columns(2)
@@ -217,12 +205,11 @@ def show_forecast_section():
             """
             **Business Value:**
             - Reducing overstock frees up significant working capital.
-            - Improved forecast accuracy leads to fewer stockouts and higher customer satisfaction.
-            - Efficient inventory management directly translates to cost savings and increased revenue.
+            - Improved forecast accuracy reduces stockouts and boosts customer satisfaction.
+            - Efficient inventory management leads to cost savings and increased revenue.
             """
         )
 
-        # Forecast Accuracy Metrics (Prophet only)
         if model_choice == "Prophet":
             st.subheader("Forecast Accuracy Metrics (Prophet)")
             if 'y' not in df.columns:
@@ -252,7 +239,6 @@ def show_forecast_section():
         else:
             st.info("Forecast Accuracy Metrics are only shown for Prophet in this demo.")
 
-        # Show Forecast Data & Plots
         st.markdown("**Forecast Data (Last 5 Rows):**")
         if not forecast_df.empty:
             st.write(forecast_df.tail())
@@ -278,7 +264,7 @@ def show_forecast_section():
     else:
         st.info("Select a model and click **Generate Forecast** to see results.")
 
-# Business Impact Section (separate module)
+# Business Impact Section using separate module
 def show_business_impact():
     from business_impact import show_business_impact as bip
     bip()
@@ -292,33 +278,36 @@ elif menu == "Business Impact":
     show_business_impact()
 elif menu == "Automated Insights":
     from automated_insights import show_automated_insights
-    # For automated insights, we can generate synthetic data and a Prophet forecast as an example
+    # For Automated Insights, use synthetic data for demonstration
     df = generate_synthetic_data()
     from forecast_utils import prophet_forecast
     model, forecast_df = prophet_forecast(df, days_to_predict=90)
     pred_col = 'yhat'
     forecast_period = forecast_df.tail(90)
     forecast_kpis = {
-        "total": forecast_period[pred_col].sum(),
-        "average": forecast_period[pred_col].mean(),
-        "peak": forecast_period[pred_col].max()
+        "Total Forecast Demand": forecast_period[pred_col].sum(),
+        "Average Forecast Demand": forecast_period[pred_col].mean(),
+        "Peak Forecast Demand": forecast_period[pred_col].max()
     }
     if {'target_inventory','actual_inventory'}.issubset(df.columns):
         df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
-        historical_kpis = {"inventory_gap": df['inventory_diff'].sum()}
+        historical_kpis = {"Inventory Gap": df['inventory_diff'].sum()}
     else:
-        historical_kpis = {"inventory_gap": 0}
+        historical_kpis = {"Inventory Gap": 0}
     if 'cost_of_goods_sold' in df.columns and 'y' in df.columns:
         avg_cost = df['cost_of_goods_sold'].sum() / df['y'].sum()
     else:
         avg_cost = 50
-    potential_savings = 0.3 * forecast_kpis["total"] * avg_cost
-    business_metrics = {"savings": potential_savings}
-    from automated_insights import show_automated_insights
+    potential_savings = 0.3 * forecast_kpis["Total Forecast Demand"] * avg_cost
+    business_metrics = {"Potential Savings": potential_savings}
     show_automated_insights(forecast_kpis, historical_kpis, business_metrics)
+elif menu == "Anomaly Detection":
+    from anomaly_detection import show_anomaly_detection
+    show_anomaly_detection()
 elif menu == "Model Comparison":
     show_model_comparison()
 elif menu == "Parameter Tuning":
     show_parameter_tuning()
 elif menu == "What-If Analysis":
     show_what_if_analysis()
+
