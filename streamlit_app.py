@@ -6,9 +6,9 @@ from model_comparison import show_model_comparison
 from parameter_tuning import show_parameter_tuning
 from what_if_analysis import show_what_if_analysis
 
-# Set page config and inject CSS for dark theme + card-like metrics
 st.set_page_config(page_title="RxData Inventory Forecast Dashboard", layout="wide")
 
+# Inject custom CSS for dark mode, card-like metrics, etc.
 st.markdown(
     """
     <style>
@@ -164,6 +164,70 @@ def show_forecast_section():
         else:
             st.info("Historical Inventory KPIs require 'target_inventory' and 'actual_inventory' columns.")
 
+        # Additional Inventory Efficiency KPIs
+        st.subheader("Inventory Efficiency KPIs (Historical)")
+        if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
+            average_inventory = df['actual_inventory'].mean()
+            total_cogs = df['cost_of_goods_sold'].sum()
+            if average_inventory > 0:
+                inventory_turnover_ratio = total_cogs / average_inventory
+                days_of_inventory_on_hand = 365 / inventory_turnover_ratio if inventory_turnover_ratio != 0 else None
+            else:
+                inventory_turnover_ratio = None
+                days_of_inventory_on_hand = None
+
+            col7, col8 = st.columns(2)
+            if inventory_turnover_ratio is not None:
+                col7.metric("Inventory Turnover Ratio", f"{inventory_turnover_ratio:.2f}")
+            else:
+                col7.metric("Inventory Turnover Ratio", "N/A")
+            if days_of_inventory_on_hand is not None:
+                col8.metric("Days of Inventory on Hand", f"{days_of_inventory_on_hand:.0f}")
+            else:
+                col8.metric("Days of Inventory on Hand", "N/A")
+        else:
+            st.info("Inventory Efficiency KPIs require 'cost_of_goods_sold' and 'actual_inventory' columns.")
+
+        # Additional Inventory Metrics (Reserved/Obsolete)
+        st.subheader("Additional Inventory Metrics (Historical)")
+        if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
+            colA, colB, colC = st.columns(3)
+            # If we calculated inventory_turnover_ratio above, reuse it; else None
+            if 'inventory_turnover_ratio' not in locals():
+                inventory_turnover_ratio = None
+                days_of_inventory_on_hand = None
+
+            colA.metric("Turns", f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
+            colB.metric("Days of Supply", f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
+
+            if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
+                reserved_total = df['reserved_inventory'].sum()
+                obsolete_total = df['obsolete_inventory'].sum()
+                ratio = None
+                if obsolete_total != 0:
+                    ratio = reserved_total / obsolete_total
+                colC.metric("Reserved/Obsolete Ratio", f"{ratio:.2f}" if ratio is not None else "N/A")
+            else:
+                colC.info("Reserved/Obsolete KPIs not available")
+        else:
+            st.info("Additional Inventory Metrics require 'cost_of_goods_sold' and 'actual_inventory' columns.")
+
+        # Additional Fills KPIs
+        st.subheader("Additional Fills KPIs (Historical)")
+        if all(col in df.columns for col in ['90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills']):
+            total_90_day_fills = df['90_day_fills'].sum()
+            total_brand_fills = df['brand_fills'].sum()
+            total_generic_fills = df['generic_fills'].sum()
+            total_partial_fills = df['partial_fills'].sum()
+
+            colF1, colF2, colF3, colF4 = st.columns(4)
+            colF1.metric("Total 90 Day Fills", f"{total_90_day_fills:,.0f}")
+            colF2.metric("Total Brand Fills", f"{total_brand_fills:,.0f}")
+            colF3.metric("Total Generic Fills", f"{total_generic_fills:,.0f}")
+            colF4.metric("Partial Fills", f"{total_partial_fills:,.0f}")
+        else:
+            st.info("Fills KPIs require '90_day_fills', 'brand_fills', 'generic_fills', and 'partial_fills' columns.")
+
         # 3f. Forecast Accuracy (Prophet only)
         if model_choice == "Prophet":
             st.subheader("Forecast Accuracy Metrics (Prophet)")
@@ -224,7 +288,6 @@ def show_forecast_section():
     else:
         st.info("Select a model and click **Generate Forecast** to see results.")
 
-# Display each section based on sidebar selection
 if menu == "Overview":
     show_overview()
 elif menu == "Forecast":
@@ -235,5 +298,6 @@ elif menu == "Parameter Tuning":
     show_parameter_tuning()
 elif menu == "What-If Analysis":
     show_what_if_analysis()
+
 
 
