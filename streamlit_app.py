@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from prophet import Prophet
-from forecast import generate_synthetic_data  # Make sure this function is available
+from forecast import generate_synthetic_data  # Ensure this function is updated with extra columns
 
 # 1. Basic Page Configuration
 st.set_page_config(
@@ -10,34 +10,28 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Inject Custom CSS for Theming and Layout
+# 2. Inject Custom CSS for Theming (Dark background with white text)
 st.markdown(
     """
     <style>
     /* Overall background */
     [data-testid="stAppViewContainer"] {
-        background-color: #1E1E1E; /* Dark background */
+        background-color: #1E1E1E;
     }
-
     /* Force default text color to white */
     body, .stApp, .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span {
         color: #FFFFFF !important;
     }
-
     /* Override metric labels & values */
-    [data-testid="stMetricValue"] {
-        color: #FFFFFF !important;
-    }
+    [data-testid="stMetricValue"],
     [data-testid="stMetricLabel"] {
         color: #FFFFFF !important;
     }
-
-    /* Override info/warning/error boxes (st.info, st.warning, st.error) */
+    /* Override alert boxes */
     .stAlert, .stAlert p {
         background-color: #333333 !important;
         color: #FFFFFF !important;
     }
-
     /* Buttons */
     .stButton button {
         background-color: #E94F37 !important;
@@ -51,19 +45,17 @@ st.markdown(
     .stButton button:hover {
         background-color: #D8432F !important;
     }
-
-    /* File uploader label and text */
-    [data-testid="stFileUploadDropzone"] div, [data-testid="stFileUploadDropzone"] label {
+    /* File uploader text */
+    [data-testid="stFileUploadDropzone"] div,
+    [data-testid="stFileUploadDropzone"] label {
         color: #FFFFFF !important;
     }
-
     /* Headings */
     h1, h2, h3, h4 {
         color: #FAFAFA !important;
         font-family: "Arial Black", sans-serif;
     }
-
-    /* Hero section (example) */
+    /* Hero section */
     .my-hero-section {
         background-color:#262730;
         padding:40px;
@@ -73,13 +65,13 @@ st.markdown(
         margin-top: -1rem;
     }
     .my-hero-section h1 {
-        color:#FAFAFA; 
+        color:#FAFAFA;
         font-size:2.5em;
         margin-bottom:0;
     }
     .my-hero-section p {
-        color:#F0F0F0; 
-        font-size:1.2em; 
+        color:#F0F0F0;
+        font-size:1.2em;
         margin-top:10px;
     }
     </style>
@@ -119,9 +111,9 @@ def load_user_data(uploaded_file):
         st.error(f"Error reading file: {e}")
         return None
 
-# 6. Button to Generate Forecast and Display All KPIs/Visuals
+# 6. Button to Generate Forecast and Display KPIs/Visuals
 if st.button("Generate Forecast"):
-    # 6a. Load user data if available; otherwise, use synthetic data
+    # Load user data if available; otherwise, use synthetic data
     if uploaded_file:
         df = load_user_data(uploaded_file)
         if df is None:
@@ -130,37 +122,35 @@ if st.button("Generate Forecast"):
     else:
         df = generate_synthetic_data()
 
-    # 6b. Forecasting with Prophet
+    # 6a. Forecasting using Prophet (only uses 'ds' and 'y')
     with st.spinner("Generating forecast..."):
         model = Prophet(yearly_seasonality=True)
         model.fit(df)
         future = model.make_future_dataframe(periods=90, freq='D')
         forecast_df = model.predict(future)
 
-    # 6c. Basic Forecast KPIs from the last 90 days
+    # 6b. Forecast KPIs (for the next 90 days from forecast_df)
     forecast_period = forecast_df.tail(90)
     total_forecast_demand = forecast_period['yhat'].sum()
     average_forecast_demand = forecast_period['yhat'].mean()
     peak_forecast_demand = forecast_period['yhat'].max()
     peak_day = forecast_period.loc[forecast_period['yhat'].idxmax(), 'ds']
 
-    st.subheader("Key Performance Indicators (KPIs)")
+    st.subheader("Forecast KPIs (Next 90 Days)")
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(label="Total Forecast Demand", value=f"{total_forecast_demand:,.0f}")
     col2.metric(label="Average Forecast Demand", value=f"{average_forecast_demand:,.0f}")
     col3.metric(label="Peak Forecast Demand", value=f"{peak_forecast_demand:,.0f}")
     col4.metric(label="Peak Day", value=str(peak_day.date()))
 
-    # 6d. Additional Inventory KPIs: Targets vs Actual, Overstock, Stockout Savings
+    # 6c. Additional Inventory KPIs (computed on historical data from df)
     if 'target_inventory' in df.columns and 'actual_inventory' in df.columns:
-        forecast_period['inventory_diff'] = forecast_period['actual_inventory'] - forecast_period['target_inventory']
-        forecast_period['overstock'] = forecast_period['inventory_diff'].apply(lambda x: x if x > 0 else 0)
-        total_overstock = forecast_period['overstock'].sum()
-        forecast_period['stockout_savings'] = forecast_period['inventory_diff'].apply(lambda x: -x if x < 0 else 0)
-        total_stockout_savings = forecast_period['stockout_savings'].sum()
-        total_inventory_gap = forecast_period['inventory_diff'].sum()
+        df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
+        total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
+        total_stockout_savings = (-df[df['inventory_diff'] < 0]['inventory_diff']).sum()
+        total_inventory_gap = df['inventory_diff'].sum()
 
-        st.subheader("Additional Inventory KPIs")
+        st.subheader("Additional Inventory KPIs (Historical)")
         col5, col6, col7 = st.columns(3)
         col5.metric(label="Inventory Targets vs Actual", value=f"{total_inventory_gap:,.0f}")
         col6.metric(label="Total Overstock", value=f"{total_overstock:,.0f}")
@@ -168,7 +158,7 @@ if st.button("Generate Forecast"):
     else:
         st.info("Additional Inventory KPIs require 'target_inventory' and 'actual_inventory' columns in your data.")
 
-    # 6e. Inventory Efficiency KPIs: Inventory Turnover Ratio & Days of Inventory on Hand
+    # 6d. Inventory Efficiency KPIs (computed on historical data)
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         average_inventory = df['actual_inventory'].mean()
         total_cogs = df['cost_of_goods_sold'].sum()
@@ -179,7 +169,7 @@ if st.button("Generate Forecast"):
             inventory_turnover_ratio = None
             days_of_inventory_on_hand = None
 
-        st.subheader("Inventory Efficiency KPIs")
+        st.subheader("Inventory Efficiency KPIs (Historical)")
         col8, col9 = st.columns(2)
         if inventory_turnover_ratio is not None:
             col8.metric(label="Inventory Turnover Ratio", value=f"{inventory_turnover_ratio:.2f}")
@@ -192,15 +182,9 @@ if st.button("Generate Forecast"):
     else:
         st.info("Inventory Efficiency KPIs require 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
-    # 6f. Additional Inventory Metrics: Turns, Days of Supply, Reserved/Obsolete Ratio
+    # 6e. Additional Inventory Metrics: Turns, Days of Supply, Reserved/Obsolete Ratio (Historical)
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         colA, colB, colC = st.columns(3)
-        # Here, Turns is the same as the Inventory Turnover Ratio
-        if 'inventory_turnover_ratio' not in locals():
-            # If not calculated above (or if something was missing), set to None
-            inventory_turnover_ratio = None
-            days_of_inventory_on_hand = None
-
         colA.metric(label="Turns", value=f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
         colB.metric(label="Days of Supply", value=f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
         
@@ -214,7 +198,7 @@ if st.button("Generate Forecast"):
     else:
         st.info("Additional Inventory Metrics require 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
-    # 6g. Forecast Accuracy Metrics: RMSE and MAPE if historical actual demand is available
+    # 6f. Forecast Accuracy Metrics using historical actual (if available)
     if 'y' in df.columns:
         forecast_with_actual = forecast_df.merge(df[['ds', 'y']], on='ds', how='left')
         historical_data = forecast_with_actual[forecast_with_actual['y'].notnull()]
@@ -241,14 +225,14 @@ if st.button("Generate Forecast"):
     else:
         st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
 
-    # 6h. Additional Fills KPIs: Total 90 Day Fills, Total Brand Fills, Total Generic Fills, Partial Fills
+    # 6g. Additional Fills KPIs (Historical)
     if all(col in df.columns for col in ['90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills']):
         total_90_day_fills = df['90_day_fills'].sum()
         total_brand_fills = df['brand_fills'].sum()
         total_generic_fills = df['generic_fills'].sum()
         total_partial_fills = df['partial_fills'].sum()
 
-        st.subheader("Additional Fills KPIs")
+        st.subheader("Additional Fills KPIs (Historical)")
         col12, col13, col14, col15 = st.columns(4)
         col12.metric(label="Total 90 Day Fills", value=f"{total_90_day_fills:,.0f}")
         col13.metric(label="Total Brand Fills", value=f"{total_brand_fills:,.0f}")
@@ -257,7 +241,7 @@ if st.button("Generate Forecast"):
     else:
         st.info("Fills KPIs require '90_day_fills', 'brand_fills', 'generic_fills', and 'partial_fills' columns.")
 
-    # 6i. Display Forecast Data & Plots
+    # 6h. Display Forecast Data & Plots
     st.subheader("Forecast Data (Last 5 Rows)")
     st.write(forecast_df.tail())
 
@@ -268,4 +252,5 @@ if st.button("Generate Forecast"):
     st.subheader("Forecast Components")
     fig2 = model.plot_components(forecast_df)
     st.pyplot(fig2)
+
 
