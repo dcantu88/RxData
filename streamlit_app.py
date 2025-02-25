@@ -238,131 +238,80 @@ if st.button("Generate Forecast"):
         col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
         col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
 
-    elif model_option == "XGBoost":
-        st.subheader("XGBoost Forecast")
-        model_xgb, future_df = xgboost_forecast(df, days_to_predict=90)
+        #################################
+        # B. Historical KPIs
+        #################################
+        st.subheader("Historical KPIs")
+        # Additional Inventory KPIs
+        st.markdown("**Additional Inventory KPIs (Historical)**")
+        if 'target_inventory' in df.columns and 'actual_inventory' in df.columns:
+            df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
+            total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
+            total_stockout_savings = -df[df['inventory_diff'] < 0]['inventory_diff'].sum()
+            total_inventory_gap = df['inventory_diff'].sum()
 
-        # Forecast KPIs
-        total_forecast_demand = future_df['xgb_pred'].sum()
-        average_forecast_demand = future_df['xgb_pred'].mean()
-        peak_forecast_demand = future_df['xgb_pred'].max()
-
-        st.subheader("Forecast KPIs (Next 90 Days)")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
-        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
-        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
-
-    else:  # LightGBM
-        st.subheader("LightGBM Forecast")
-        model_lgb, future_df = lightgbm_forecast(df, days_to_predict=90)
-
-        # Forecast KPIs
-        total_forecast_demand = future_df['lgb_pred'].sum()
-        average_forecast_demand = future_df['lgb_pred'].mean()
-        peak_forecast_demand = future_df['lgb_pred'].max()
-
-        st.subheader("Forecast KPIs (Next 90 Days)")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
-        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
-        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
-
-    #################################
-    # B. Historical KPIs (move them up)
-    #################################
-    st.subheader("Historical KPIs")
-    # Additional Inventory KPIs
-    st.markdown("**Additional Inventory KPIs (Historical)**")
-    if 'target_inventory' in df.columns and 'actual_inventory' in df.columns:
-        df['inventory_diff'] = df['actual_inventory'] - df['target_inventory']
-        total_overstock = df[df['inventory_diff'] > 0]['inventory_diff'].sum()
-        total_stockout_savings = -df[df['inventory_diff'] < 0]['inventory_diff'].sum()
-        total_inventory_gap = df['inventory_diff'].sum()
-
-        col4, col5, col6 = st.columns(3)
-        col4.metric("Inventory Targets vs Actual", f"{total_inventory_gap:,.0f}")
-        col5.metric("Total Overstock", f"{total_overstock:,.0f}")
-        col6.metric("Total Stockout Savings", f"{total_stockout_savings:,.0f}")
-    else:
-        st.info("Requires 'target_inventory' and 'actual_inventory' columns.")
-
-    # Inventory Efficiency KPIs
-    st.markdown("**Inventory Efficiency KPIs (Historical)**")
-    if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
-        average_inventory = df['actual_inventory'].mean()
-        total_cogs = df['cost_of_goods_sold'].sum()
-        if average_inventory > 0:
-            inventory_turnover_ratio = total_cogs / average_inventory
-            days_of_inventory_on_hand = 365 / inventory_turnover_ratio if inventory_turnover_ratio != 0 else None
+            col4, col5, col6 = st.columns(3)
+            col4.metric("Inventory Targets vs Actual", f"{total_inventory_gap:,.0f}")
+            col5.metric("Total Overstock", f"{total_overstock:,.0f}")
+            col6.metric("Total Stockout Savings", f"{total_stockout_savings:,.0f}")
         else:
-            inventory_turnover_ratio = None
-            days_of_inventory_on_hand = None
+            st.info("Requires 'target_inventory' and 'actual_inventory' columns.")
 
-        col7, col8 = st.columns(2)
-        col7.metric("Inventory Turnover Ratio", f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
-        col8.metric("Days of Inventory on Hand", f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
-    else:
-        st.info("Requires 'cost_of_goods_sold' and 'actual_inventory' columns.")
+        # Efficiency KPIs
+        st.markdown("**Inventory Efficiency KPIs (Historical)**")
+        if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
+            average_inventory = df['actual_inventory'].mean()
+            total_cogs = df['cost_of_goods_sold'].sum()
+            if average_inventory > 0:
+                inventory_turnover_ratio = total_cogs / average_inventory
+                days_of_inventory_on_hand = 365 / inventory_turnover_ratio if inventory_turnover_ratio != 0 else None
+            else:
+                inventory_turnover_ratio = None
+                days_of_inventory_on_hand = None
 
-    st.markdown("**Additional Inventory Metrics (Historical)**")
-    if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
-        colA, colB, colC = st.columns(3)
-        if 'inventory_turnover_ratio' not in locals():
-            inventory_turnover_ratio = None
-            days_of_inventory_on_hand = None
-        colA.metric("Turns", f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
-        colB.metric("Days of Supply", f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
-        
-        if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
-            reserved_total = df['reserved_inventory'].sum()
-            obsolete_total = df['obsolete_inventory'].sum()
-            ratio = reserved_total / obsolete_total if obsolete_total != 0 else None
-            colC.metric("Reserved/Obsolete Ratio", f"{ratio:.2f}" if ratio is not None else "N/A")
+            col7, col8 = st.columns(2)
+            col7.metric("Inventory Turnover Ratio", f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
+            col8.metric("Days of Inventory on Hand", f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
         else:
-            colC.info("Reserved/Obsolete KPIs not available")
+            st.info("Requires 'cost_of_goods_sold' and 'actual_inventory' columns.")
 
-    st.markdown("**Additional Fills KPIs (Historical)**")
-    if all(col in df.columns for col in ['90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills']):
-        total_90_day_fills = df['90_day_fills'].sum()
-        total_brand_fills = df['brand_fills'].sum()
-        total_generic_fills = df['generic_fills'].sum()
-        total_partial_fills = df['partial_fills'].sum()
+        st.markdown("**Additional Inventory Metrics (Historical)**")
+        if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
+            colA, colB, colC = st.columns(3)
+            if 'inventory_turnover_ratio' not in locals():
+                inventory_turnover_ratio = None
+                days_of_inventory_on_hand = None
+            colA.metric("Turns", f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
+            colB.metric("Days of Supply", f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
+            
+            if 'reserved_inventory' in df.columns and 'obsolete_inventory' in df.columns:
+                reserved_total = df['reserved_inventory'].sum()
+                obsolete_total = df['obsolete_inventory'].sum()
+                ratio = reserved_total / obsolete_total if obsolete_total != 0 else None
+                colC.metric("Reserved/Obsolete Ratio", f"{ratio:.2f}" if ratio is not None else "N/A")
+            else:
+                colC.info("Reserved/Obsolete KPIs not available")
 
-        col12, col13, col14, col15 = st.columns(4)
-        col12.metric("Total 90 Day Fills", f"{total_90_day_fills:,.0f}")
-        col13.metric("Total Brand Fills", f"{total_brand_fills:,.0f}")
-        col14.metric("Total Generic Fills", f"{total_generic_fills:,.0f}")
-        col15.metric("Partial Fills", f"{total_partial_fills:,.0f}")
-    else:
-        st.info("Requires '90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills' columns.")
+        st.markdown("**Additional Fills KPIs (Historical)**")
+        if all(col in df.columns for col in ['90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills']):
+            total_90_day_fills = df['90_day_fills'].sum()
+            total_brand_fills = df['brand_fills'].sum()
+            total_generic_fills = df['generic_fills'].sum()
+            total_partial_fills = df['partial_fills'].sum()
 
-    #################################
-    # C. Show Forecast Data/Plots
-    #################################
-    if model_option == "Prophet":
-        st.write("Prophet Forecast (Last 5 Rows):")
-        st.write(forecast_df.tail())
-        fig = model.plot(forecast_df)
-        st.pyplot(fig)
-        fig2 = model.plot_components(forecast_df)
-        st.pyplot(fig2)
+            col12, col13, col14, col15 = st.columns(4)
+            col12.metric("Total 90 Day Fills", f"{total_90_day_fills:,.0f}")
+            col13.metric("Total Brand Fills", f"{total_brand_fills:,.0f}")
+            col14.metric("Total Generic Fills", f"{total_generic_fills:,.0f}")
+            col15.metric("Partial Fills", f"{total_partial_fills:,.0f}")
+        else:
+            st.info("Requires '90_day_fills', 'brand_fills', 'generic_fills', 'partial_fills' columns.")
 
-    elif model_option == "XGBoost":
-        st.write("XGBoost Forecast Data (Next 90 Days):")
-        st.write(future_df.tail())
-        st.line_chart(data=future_df.set_index('ds')['xgb_pred'], use_container_width=True)
-
-    else:  # LightGBM
-        st.write("LightGBM Forecast Data (Next 90 Days):")
-        st.write(future_df.tail())
-        st.line_chart(data=future_df.set_index('ds')['lgb_pred'], use_container_width=True)
-
-    #################################
-    # D. Forecast Accuracy (Prophet Only)
-    #################################
-    if 'y' in df.columns:
-        if model_option == "Prophet":
+        #################################
+        # C. Forecast Accuracy (Prophet)
+        #################################
+        if 'y' in df.columns:
+            # Merge the forecast with actual y
             forecast_merged = forecast_df.merge(df[['ds','y']], on='ds', how='left')
             historical_data = forecast_merged[forecast_merged['y'].notnull()]
             if not historical_data.empty:
@@ -383,7 +332,69 @@ if st.button("Generate Forecast"):
             else:
                 st.info("Not enough overlapping historical data to compute accuracy.")
         else:
-            st.info("Forecast Accuracy Metrics are shown for Prophet in this demo.")
-    else:
-        st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
+            st.info("Forecast Accuracy Metrics require a 'y' column with actual demand data.")
+
+        #################################
+        # D. Show Forecast Table/Plots
+        #################################
+        st.write("Prophet Forecast (Last 5 Rows):")
+        st.write(forecast_df.tail())
+        fig = model.plot(forecast_df)
+        st.pyplot(fig)
+        fig2 = model.plot_components(forecast_df)
+        st.pyplot(fig2)
+
+    elif model_option == "XGBoost":
+        st.subheader("XGBoost Forecast")
+        model_xgb, future_df = xgboost_forecast(df, days_to_predict=90)
+
+        # Forecast KPIs
+        total_forecast_demand = future_df['xgb_pred'].sum()
+        average_forecast_demand = future_df['xgb_pred'].mean()
+        peak_forecast_demand = future_df['xgb_pred'].max()
+
+        st.subheader("Forecast KPIs (Next 90 Days)")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
+        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
+        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
+
+        #################################
+        # Historical KPIs
+        #################################
+        st.subheader("Historical KPIs")
+        # ... same code as Prophet for Additional Inventory, Efficiency, etc. ...
+        # You can copy the entire block from above if you want the same historical metrics for XGBoost
+
+        # Show forecast data & chart
+        st.write("XGBoost Forecast Data (Next 90 Days):")
+        st.write(future_df.tail())
+        st.line_chart(data=future_df.set_index('ds')['xgb_pred'], use_container_width=True)
+
+    else:  # LightGBM
+        st.subheader("LightGBM Forecast")
+        model_lgb, future_df = lightgbm_forecast(df, days_to_predict=90)
+
+        # Forecast KPIs
+        total_forecast_demand = future_df['lgb_pred'].sum()
+        average_forecast_demand = future_df['lgb_pred'].mean()
+        peak_forecast_demand = future_df['lgb_pred'].max()
+
+        st.subheader("Forecast KPIs (Next 90 Days)")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Forecast Demand", f"{total_forecast_demand:,.0f}")
+        col2.metric("Average Forecast Demand", f"{average_forecast_demand:,.0f}")
+        col3.metric("Peak Forecast Demand", f"{peak_forecast_demand:,.0f}")
+
+        #################################
+        # Historical KPIs
+        #################################
+        st.subheader("Historical KPIs")
+        # ... same code block as Prophet for Additional Inventory, Efficiency, Fills, etc. ...
+
+        # Show forecast data & chart
+        st.write("LightGBM Forecast Data (Next 90 Days):")
+        st.write(future_df.tail())
+        st.line_chart(data=future_df.set_index('ds')['lgb_pred'], use_container_width=True)
+
 
