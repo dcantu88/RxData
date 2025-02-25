@@ -89,9 +89,9 @@ st.markdown(
 #############################
 hero_html = """
 <div class="my-hero-section">
-    <h1>Avoid overstock, save in working capital</h1>
+    <h1>RxData Inventory Forecast & KPI Dashboard</h1>
     <p>
-        30% reduction in inventory costs | 20% fewer stock-outs | Profitable Rx 90 Day Fills | 15% boost in patient retention
+        Get real-time inventory insights and key performance metrics at a glance.
     </p>
 </div>
 """
