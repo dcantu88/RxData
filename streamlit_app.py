@@ -10,28 +10,41 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Inject Custom CSS for Theming (Dark background with white text)
+# 2. Inject Custom CSS for Theming (Dark background with white text, plus metric card styling)
 st.markdown(
     """
     <style>
     /* Overall background */
     [data-testid="stAppViewContainer"] {
-        background-color: #1E1E1E;
+        background-color: #1E1E1E; /* Dark background */
     }
+
     /* Force default text color to white */
     body, .stApp, .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span {
         color: #FFFFFF !important;
     }
+
     /* Override metric labels & values */
     [data-testid="stMetricValue"],
     [data-testid="stMetricLabel"] {
         color: #FFFFFF !important;
     }
-    /* Override alert boxes */
+
+    /* Make each metric look like a card with a white border and subtle background */
+    [data-testid="metric-container"] {
+        border: 1px solid #FFFFFF;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background-color: rgba(255,255,255,0.05);
+        margin-bottom: 1rem;
+    }
+
+    /* Override alert boxes (st.info, st.warning, st.error) */
     .stAlert, .stAlert p {
         background-color: #333333 !important;
         color: #FFFFFF !important;
     }
+
     /* Buttons */
     .stButton button {
         background-color: #E94F37 !important;
@@ -45,16 +58,19 @@ st.markdown(
     .stButton button:hover {
         background-color: #D8432F !important;
     }
+
     /* File uploader text */
     [data-testid="stFileUploadDropzone"] div,
     [data-testid="stFileUploadDropzone"] label {
         color: #FFFFFF !important;
     }
+
     /* Headings */
     h1, h2, h3, h4 {
         color: #FAFAFA !important;
         font-family: "Arial Black", sans-serif;
     }
+
     /* Hero section */
     .my-hero-section {
         background-color:#262730;
@@ -65,14 +81,21 @@ st.markdown(
         margin-top: -1rem;
     }
     .my-hero-section h1 {
-        color:#FAFAFA;
+        color:#FAFAFA; 
         font-size:2.5em;
         margin-bottom:0;
     }
     .my-hero-section p {
-        color:#F0F0F0;
-        font-size:1.2em;
+        color:#F0F0F0; 
+        font-size:1.2em; 
         margin-top:10px;
+    }
+
+    /* (Optional) Increase the gap between columns if needed
+       NOTE: The class name may differ by Streamlit version.
+       Use dev tools to confirm. For example: */
+    .css-1gatmva, .css-1u0t2l2 {
+        gap: 2rem !important; /* Increase column gap */
     }
     </style>
     """,
@@ -129,7 +152,7 @@ if st.button("Generate Forecast"):
         future = model.make_future_dataframe(periods=90, freq='D')
         forecast_df = model.predict(future)
 
-    # 6b. Forecast KPIs (for the next 90 days from forecast_df)
+    # 6b. Forecast KPIs (for the next 90 days)
     forecast_period = forecast_df.tail(90)
     total_forecast_demand = forecast_period['yhat'].sum()
     average_forecast_demand = forecast_period['yhat'].mean()
@@ -185,6 +208,10 @@ if st.button("Generate Forecast"):
     # 6e. Additional Inventory Metrics: Turns, Days of Supply, Reserved/Obsolete Ratio (Historical)
     if 'cost_of_goods_sold' in df.columns and 'actual_inventory' in df.columns:
         colA, colB, colC = st.columns(3)
+        if 'inventory_turnover_ratio' not in locals():
+            inventory_turnover_ratio = None
+            days_of_inventory_on_hand = None
+
         colA.metric(label="Turns", value=f"{inventory_turnover_ratio:.2f}" if inventory_turnover_ratio else "N/A")
         colB.metric(label="Days of Supply", value=f"{days_of_inventory_on_hand:.0f}" if days_of_inventory_on_hand else "N/A")
         
@@ -252,5 +279,3 @@ if st.button("Generate Forecast"):
     st.subheader("Forecast Components")
     fig2 = model.plot_components(forecast_df)
     st.pyplot(fig2)
-
-
